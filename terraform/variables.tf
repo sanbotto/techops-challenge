@@ -38,3 +38,8 @@ variable "ghost_url" {
 	default     = "https://ghost.sbotto.com"
 	description = "The URL to use for Ghost"
 }
+
+variable "mysql_db" {
+	default     = "techops_ghost"
+	description = "The name for the Ghost database"
+}

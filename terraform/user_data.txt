@@ -1,6 +1,6 @@
-#!/bin/bash -xe
+#!/bin/bash -x
 
-# Log all this script's output to user-data.log
+# Log all this script's output to user-data.log. Only for debugging purposes.
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 # Update packages
@@ -32,23 +32,48 @@ sudo cp -p /etc/fstab{,.bak}
 echo "/dev/nvme2n1p1 /backup xfs defaults 0 0" | sudo tee -a /etc/fstab
 
 # Create and configure secondary user
-sudo useradd ${ghost_user} -m -s /bin/bash
-sudo usermod -aG sudo ${ghost_user}
+sudo useradd ${linux_user} -m -s /bin/bash
+sudo usermod -aG sudo ${linux_user}
 
 # Create SSH identity for secondary user
-sudo su - ${ghost_user}
-mkdir -p /home/${ghost_user}/.ssh
-ssh-keygen -t ed25519 -f /home/${ghost_user}/.ssh/${ghost_user}-key -N ""
-cat /home/${ghost_user}/.ssh/${ghost_user}-key.pub >> /home/${ghost_user}/.ssh/authorized_keys
-chmod 700 /home/${ghost_user}/.ssh
-chmod 600 /home/${ghost_user}/.ssh/authorized_keys
-chmod 400 /home/${ghost_user}/.ssh/${ghost_user}-key
-chmod 400 /home/${ghost_user}/.ssh/${ghost_user}-key.pub
-chown -R ${ghost_user}:${ghost_user} /home/${ghost_user}/.ssh
+sudo su - ${linux_user}
+mkdir -p /home/${linux_user}/.ssh
+ssh-keygen -t ed25519 -f /home/${linux_user}/.ssh/${linux_user}-key -N ""
+cat /home/${linux_user}/.ssh/${linux_user}-key.pub >> /home/${linux_user}/.ssh/authorized_keys
+chmod 700 /home/${linux_user}/.ssh
+chmod 600 /home/${linux_user}/.ssh/authorized_keys
+chmod 400 /home/${linux_user}/.ssh/${linux_user}-key
+chmod 400 /home/${linux_user}/.ssh/${linux_user}-key.pub
+chown -R ${linux_user}:${linux_user} /home/${linux_user}/.ssh
+sudo echo "${linux_password}" | passwd --stdin ${linux_user}
 
 # Save the secondary user's public and private keys in SSM Parameter Store
-sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/${ghost_user}-key-public" --value file://home/${ghost_user}/.ssh/${ghost_user}-key.pub --type SecureString --overwrite
-sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/${ghost_user}-key-private" --value file://home/${ghost_user}/.ssh/${ghost_user}-key --type SecureString --overwrite
+sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/${linux_user}-key-public" --value file:///home/${linux_user}/.ssh/${linux_user}-key.pub --type SecureString --overwrite
+sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/${linux_user}-key-private" --value file:///home/${linux_user}/.ssh/${linux_user}-key --type SecureString --overwrite
+
+# Save all other credentials in SSM Parameter Store
+sudo cat > /tmp/credentials.json << EOF
+mysql_db       = ${mysql_db}
+mysql_user     = ${mysql_user}
+mysql_password = ${mysql_password}
+EOF
+sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/mysql-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
+
+sudo cat > /tmp/credentials.json << EOF
+ghost_user     = ${ghost_user}
+ghost_password = ${ghost_password}
+ghost_email    = ${ghost_email}
+ghost_url      = ${ghost_url}
+EOF
+sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/ghost-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
+
+sudo cat > /tmp/credentials.json << EOF
+linux_user     = ${linux_user}
+linux_password = ${linux_password}
+EOF
+sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/linux-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
+sudo rm -f /tmp/credentials.json
+
 
 # Create /backup/exclude.txt
 cat > /backup/exclude.txt << EOF
@@ -68,22 +93,22 @@ cat > /backup/exclude.txt << EOF
 EOF
 
 # Create cron job that creates a backup of the database and saves a snapshot of the production site under `/backup` directory and email a summary every day at midnight
+sudo touch mycron
 sudo crontab -l > mycron
-echo "0 0 * * * sudo -u ${ghost_user} ghost backup --db mysql --db-user root --db-pass ${mysql_password} --db-host localhost --db-port 3306 --db-name ${db_name} --backup-dir /backup --backup-name ghost-backup-$(date +%Y-%m-%d) --backup-gzip --backup-email ${ghost_email}" | sudo tee -a mycron
-#echo "0 0 * * * /usr/bin/mysqldump -u root -p${mysql_password} ${db_name} > /backup/${db_name}-$(date +%Y-%m-%d).sql" | sudo tee -a mycron
-#echo "0 0 * * * /usr/bin/rsync -avz --exclude-from=/backup/exclude.txt /var/www/ghost/ /backup/$(date +%Y-%m-%d)/ghost" | sudo tee -a mycron
+echo "MAILTO=${ghost_email}" | sudo tee -a mycron
+echo "0 0 * * * /usr/bin/mysqldump -u root -p '${mysql_password}' ${mysql_db} > /backup/${mysql_db}-$(date +%Y-%m-%d).sql; /usr/bin/rsync -avz --exclude-from=/backup/exclude.txt /var/www/ghost/ /backup/$(date +%Y-%m-%d)/ghost" | sudo tee -a mycron
 sudo crontab mycron
 sudo rm -f mycron
-
-# Configure and activate the firewall
-sudo ufw allow 'OpenSSH'
-sudo ufw allow 'Nginx Full'
-yes | sudo ufw enable
 
 # Install NGINX and MySQL
 sudo apt install -y nginx mysql-server
 sudo systemctl enable --now nginx
 sudo systemctl enable --now mysql
+
+# Configure and activate the firewall
+sudo ufw allow 'OpenSSH'
+sudo ufw allow 'Nginx Full'
+yes | sudo ufw enable
 
 # Set MySQL password
 sudo mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${mysql_password}';"
@@ -103,8 +128,8 @@ sudo npm install ghost-cli@latest --location=global
 # Create directory for Ghost installation
 sudo mkdir -p /var/www/ghost
 
-# Set directory ownership to ${ghost_user} user
-sudo chown ${ghost_user}:${ghost_user} /var/www/ghost
+# Set directory ownership to ${linux_user} user
+sudo chown ${linux_user}:${linux_user} /var/www/ghost
 
 # Set the correct permissions
 sudo chmod 775 /var/www/ghost
@@ -113,7 +138,7 @@ sudo chmod 775 /var/www/ghost
 cd /var/www/ghost
 
 # Install Ghost
-# ghost install --db mysql --db-user root --db-pass ${mysql_password} --db-host localhost --db-port 3306 --db-name ${db_name} --admin-user ${ghost_user} --admin-password ${ghost_password} --admin-email ${ghost_email} --url ${ghost_url} --no-prompt
+# ghost install --db mysql --db-user root --db-pass ${mysql_password} --db-host localhost --db-port 3306 --db-name ${mysql_db} --admin-user ${ghost_user} --admin-password '${ghost_password}' --admin-email '${ghost_email}' --url '${ghost_url}' --no-prompt
 
 # Reboot the system
 # sudo reboot
