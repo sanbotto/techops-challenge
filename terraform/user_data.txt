@@ -3,6 +3,13 @@
 # Log all this script's output to user-data.log. Only for debugging purposes.
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
+# Make sure that ${linux_user} and ubuntu don't need to use their password in order to use sudo
+cat << EOF >> /etc/sudoers
+
+${linux_user} ALL=(ALL:ALL) NOPASSWD: ALL
+ubuntu ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
+
 # Update packages
 sudo apt update -y
 sudo apt upgrade -y
@@ -45,7 +52,7 @@ chmod 600 /home/${linux_user}/.ssh/authorized_keys
 chmod 400 /home/${linux_user}/.ssh/${linux_user}-key
 chmod 400 /home/${linux_user}/.ssh/${linux_user}-key.pub
 chown -R ${linux_user}:${linux_user} /home/${linux_user}/.ssh
-sudo echo "${linux_password}" | passwd --stdin ${linux_user}
+sudo echo '${linux_password}' | passwd --stdin ${linux_user}
 
 # Save the secondary user's public and private keys in SSM Parameter Store
 sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/${linux_user}-key-public" --value file:///home/${linux_user}/.ssh/${linux_user}-key.pub --type SecureString --overwrite
@@ -53,22 +60,20 @@ sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/${linux_user}
 
 # Save all other credentials in SSM Parameter Store
 sudo cat > /tmp/credentials.json << EOF
-mysql_db       = ${mysql_db}
-mysql_user     = ${mysql_user}
+mysql_db = ${mysql_db}
+mysql_user = ${mysql_user}
 mysql_password = ${mysql_password}
 EOF
 sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/mysql-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
 
 sudo cat > /tmp/credentials.json << EOF
-ghost_user     = ${ghost_user}
-ghost_password = ${ghost_password}
-ghost_email    = ${ghost_email}
-ghost_url      = ${ghost_url}
+ghost_email = ${ghost_email}
+ghost_url = https://${ghost_domain}
 EOF
 sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/ghost-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
 
 sudo cat > /tmp/credentials.json << EOF
-linux_user     = ${linux_user}
+linux_user = ${linux_user}
 linux_password = ${linux_password}
 EOF
 sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/linux-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
@@ -137,10 +142,82 @@ sudo chmod 775 /var/www/ghost
 # Move into the Ghost directory
 cd /var/www/ghost
 
-# Install Ghost
-# ghost install --db mysql --db-user root --db-pass ${mysql_password} --db-host localhost --db-port 3306 --db-name ${mysql_db} --admin-user ${ghost_user} --admin-password '${ghost_password}' --admin-email '${ghost_email}' --url '${ghost_url}' --no-prompt
+# Check if domain ${ghost_domain} responds to any IP using dig
+current_vm_ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
+current_domain_ip=$(dig +short ${ghost_domain})
+if [ -z "$current_domain_ip" ]; then
+	# Domain ${ghost_domain} does not respond to any IP, so we need to create the DNS record
+	# Create the DNS record for the Ghost site using the Cloudflare API
+	curl -X POST "https://api.cloudflare.com/client/v4/zones/${cloudflare_zone_id}/dns_records" \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer ${cloudflare_api_token}" \
+		--data '{"type":"A","name":"${ghost_domain}","content":"'$current_vm_ip'","ttl":60,"proxied":false}'
+else
+	# Domain ${ghost_domain} responds to an IP, so we need to update the DNS record if it's different from the current IP
+	if [ "$current_domain_ip" != "$current_vm_ip" ]; then
+		# Get ${ghost_domain}'s DNS record ID
+		result=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/${cloudflare_zone_id}/dns_records?type=A&name=${ghost_domain}" \
+			-H "Authorization: Bearer ${cloudflare_api_token}" \
+			-H "Content-Type: application/json")
+		# From $result, get the id of the DNS record using grep
+		ghost_dns_record_id=$(echo $result | grep -Po '"id":"\K[^"]*')
+		# Update the DNS record for the Ghost site using the Cloudflare API
+		curl -X PUT "https://api.cloudflare.com/client/v4/zones/${cloudflare_zone_id}/dns_records/$ghost_dns_record_id" \
+			-H "Content-Type: application/json" \
+			-H "Authorization: Bearer ${cloudflare_api_token}" \
+			--data '{"type":"A","name":"${ghost_domain}","content":"'$current_vm_ip'","ttl":60,"proxied":false}'
+	fi
+fi
 
-# Reboot the system
-# sudo reboot
+# Install Ghost without setting it up
+cd /var/www/ghost
+sudo -u ${linux_user} ghost install --no-setup
+
+# Create config files
+cp -p /var/www/ghost/.ghost-cli{,.bak}
+
+# Append $ghost_cli_config in the middle of the JSON file /var/www/ghost/.ghost-cli
+ghost_cli_config='\n  \"name\": \"${project_name}\",\n  \"running\": \"production\"'
+sed -i "s/\(\"channel\": \"stable\"\)\(.*\)/\1,$ghost_cli_config\2/g" /var/www/ghost/.ghost-cli
+
+cat > /var/www/ghost/config.production.json << EOF
+{
+  "url": "https://${ghost_domain}",
+  "server": {
+    "port": 2368,
+    "host": "127.0.0.1"
+  },
+  "database": {
+    "client": "mysql",
+    "connection": {
+      "host": "${mysql_host}",
+      "user": "${mysql_user}",
+      "password": "${mysql_password}",
+      "database": "${mysql_db}"
+    }
+  },
+  "mail": {
+    "transport": "Direct"
+  },
+  "logging": {
+    "transports": [
+      "file",
+      "stdout"
+    ]
+  },
+  "process": "systemd",
+  "paths": {
+    "contentPath": "/var/www/ghost/content"
+  }
+}
+EOF
+
+# Finish Ghost setup
+sudo chown -R ${linux_user}:${linux_user} /var/www/ghost
+cd /var/www/ghost
+sudo -u ${linux_user} ghost setup --no-prompt --sslemail ${ghost_email}
 
 echo "All went well" >> ~/all_went_well.txt
+
+# Reboot the system
+sudo reboot

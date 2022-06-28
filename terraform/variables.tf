@@ -1,11 +1,11 @@
-variable "project_name" {
-	default     = "techops-ghost"
-	description = "The name of the project"
-}
-
 variable "aws_region" {
 	default     = "us-west-2"
 	description = "The AWS region to use"
+}
+
+variable "project_name" {
+	default     = "techops-ghost"
+	description = "The name of the project"
 }
 
 variable "project_bucket" {
@@ -23,23 +23,29 @@ variable "key_name" {
 	description = "The SSH key to use for the EC2 instance"
 }
 
-# Ghost installation
-variable "ghost_user" {
-	default     = "dev-admin"
-	description = "The user to use for Ghost"
-}
-
+# Ghost
 variable "ghost_email" {
 	default     = "me@sbotto.com"
 	description = "The email address to use for Ghost"
 }
 
-variable "ghost_url" {
-	default     = "https://ghost.sbotto.com"
+variable "ghost_domain" {
+	default     = "ghost.sbotto.com"
 	description = "The URL to use for Ghost"
 }
 
+# MySQL
 variable "mysql_db" {
 	default     = "techops_ghost"
 	description = "The name for the Ghost database"
+}
+
+variable "mysql_user" {
+	default     = "root"
+	description = "MySQL user"
+}
+
+variable "mysql_host" {
+	default     = "localhost"
+	description = "MySQL host"
 }
