@@ -2,7 +2,7 @@
 
 1. Create a new user with home directory + SSH identity _(DONE)_
 
-2. Install Ghost application + dependencies - _(DONE - The issues that exist are related to bugs with Ghost's CLI)_
+2. Install Ghost application + dependencies - _(DONE)_
 
 3. Setup the firewall to only allow SSH and Ghost traffic through - _(DONE)_
 
@@ -17,10 +17,8 @@
 
 ## Deliverables
 
-1. Git repo with Terraform manifests to provision and configure the VM. _WIP_
+1. Git repo with Terraform manifests to provision and configure the VM. - _(DONE)_
 
 2. Very clear instructions for the developers on how they can provision this new infrastructure from scratch to deploy their own Ghost instance, push changes and view them. _(DONE)_
 
-3. A paragraph reflecting on the solution and pointing out what can be improved given more time going forward. _WIP_
-
-https://github.com/MakerOps/techops-challenge
+3. A paragraph reflecting on the solution and pointing out what can be improved given more time going forward. - _(DONE)_
