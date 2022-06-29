@@ -100,47 +100,47 @@ EOF
 cat > /opt/custom/backup.sh << EOF
 #!/bin/bash
 
-backup_dir="/backup/$(date +%Y-%m-%d)"
-db_backup_file="$backup_dir/${mysql_db}.sql.gz"
+backup_dir="/backup/\$(date +%Y-%m-%d)"
+db_backup_file="\$backup_dir/${mysql_db}.sql.gz"
 log_file="/var/log/backup.log"
 
 # Create backup directory
-mkdir -p $backup_dir
+mkdir -p \$backup_dir
 
-echo "" > $log_file
-echo "---------- Starting MySQL backup ----------" >> $log_file
-if mysqldump -u root -p '${mysql_password}' --log-error=$log_file ${mysql_db} 2>$log_file | gzip > $db_backup_file; then
-	echo "$(date) - File $db_backup_file successfully created." >> $log_file
-	echo "-------------------------------------------" >> $log_file
+echo "" > \$log_file
+echo "---------- Starting MySQL backup ----------" >> \$log_file
+if mysqldump -u root -p'${mysql_password}' --log-error=\$log_file ${mysql_db} 2>\$log_file | gzip > \$db_backup_file; then
+	echo "\$(date) - File \$db_backup_file successfully created." >> \$log_file
+	echo "-------------------------------------------" >> \$log_file
 else
-	echo "$(date) - File $db_backup_file could not be created. You should manually backup the database ASAP." >> $log_file
-	echo "-------------------------------------------" >> $log_file
+	echo "\$(date) - File \$db_backup_file could not be created. You should manually backup the database ASAP." >> \$log_file
+	echo "-------------------------------------------" >> \$log_file
 fi
 
-echo "" >> $log_file
-echo "---------- Starting Ghost directory backup ----------" >> $log_file
-if rsync -avz --exclude-from=/backup/exclude.txt /var/www/ghost/ /backup/$(date +%Y-%m-%d)/ghost; then
-	echo "$(date) - Ghost directory successfully backed up." >> $log_file
-	echo "-------------------------------------------" >> $log_file
+echo "" >> \$log_file
+echo "---------- Starting Ghost directory backup ----------" >> \$log_file
+if rsync -qavz --exclude-from=/backup/exclude.txt /var/www/ghost/ /backup/\$(date +%Y-%m-%d)/ghost; then
+	echo "\$(date) - Ghost directory successfully backed up." >> \$log_file
+	echo "-------------------------------------------" >> \$log_file
 else
-	echo "$(date) - Ghost directory could not be backed up. You should manually back it up ASAP." >> $log_file
-	echo "-------------------------------------------" >> $log_file
+	echo "\$(date) - Ghost directory could not be backed up. You should manually back it up ASAP." >> \$log_file
+	echo "-------------------------------------------" >> \$log_file
 fi
 
 # Enforce retention policy
-echo "" >> $log_file
-echo "---------- Starting retention policy enforcement ----------" >> $log_file
-# Delete files older than 7 days
-if find /backup -type d -mtime +7 -exec rm -rf {} \; ; then
-	echo "$(date) - Old backup files and directories deleted." >> $log_file
-	echo "-------------------------------------------" >> $log_file
+echo "" >> \$log_file
+echo "---------- Starting retention policy enforcement ----------" >> \$log_file
+# Delete backups older than 7 days
+if find /backup -maxdepth 1 -type d -mtime +7 -exec rm -rf {} \; ; then
+	echo "\$(date) - Old backups deleted." >> \$log_file
+	echo "-------------------------------------------" >> \$log_file
 else
-	echo "$(date) - Old backup files and directories could not be deleted. You should manually delete them ASAP." >> $log_file
-	echo "-------------------------------------------" >> $log_file
+	echo "\$(date) - Old backups could not be deleted. You should manually delete them ASAP." >> \$log_file
+	echo "-------------------------------------------" >> \$log_file
 fi
 
 # Send an email with the backup log
-aws sns publish --topic-arn "${topic_arn}" --message file://$log_file
+aws sns publish --topic-arn "${topic_arn}" --message file://\$log_file
 EOF
 chmod 700 /opt/custom/backup.sh
 
