@@ -67,7 +67,7 @@ EOF
 sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/mysql-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
 
 sudo cat > /tmp/credentials.json << EOF
-ghost_email = ${ghost_email}
+admin_email = ${admin_email}
 ghost_url = https://${ghost_domain}
 EOF
 sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/ghost-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
@@ -78,7 +78,6 @@ linux_password = ${linux_password}
 EOF
 sudo /usr/local/bin/aws ssm put-parameter --name "/${project_name}/linux-credentials" --value file:///tmp/credentials.json --type SecureString --overwrite
 sudo rm -f /tmp/credentials.json
-
 
 # Create /backup/exclude.txt
 cat > /backup/exclude.txt << EOF
@@ -98,10 +97,55 @@ cat > /backup/exclude.txt << EOF
 EOF
 
 # Create cron job that creates a backup of the database and saves a snapshot of the production site under `/backup` directory and email a summary every day at midnight
+cat > /opt/custom/backup.sh << EOF
+#!/bin/bash
+
+backup_dir="/backup/$(date +%Y-%m-%d)"
+db_backup_file="$backup_dir/${mysql_db}.sql.gz"
+log_file="/var/log/backup.log"
+
+# Create backup directory
+mkdir -p $backup_dir
+
+echo "" > $log_file
+echo "---------- Starting MySQL backup ----------" >> $log_file
+if mysqldump -u root -p '${mysql_password}' --log-error=$log_file ${mysql_db} 2>$log_file | gzip > $db_backup_file; then
+	echo "$(date) - File $db_backup_file successfully created." >> $log_file
+	echo "-------------------------------------------" >> $log_file
+else
+	echo "$(date) - File $db_backup_file could not be created. You should manually backup the database ASAP." >> $log_file
+	echo "-------------------------------------------" >> $log_file
+fi
+
+echo "" >> $log_file
+echo "---------- Starting Ghost directory backup ----------" >> $log_file
+if rsync -avz --exclude-from=/backup/exclude.txt /var/www/ghost/ /backup/$(date +%Y-%m-%d)/ghost; then
+	echo "$(date) - Ghost directory successfully backed up." >> $log_file
+	echo "-------------------------------------------" >> $log_file
+else
+	echo "$(date) - Ghost directory could not be backed up. You should manually back it up ASAP." >> $log_file
+	echo "-------------------------------------------" >> $log_file
+fi
+
+# Enforce retention policy
+echo "" >> $log_file
+echo "---------- Starting retention policy enforcement ----------" >> $log_file
+# Delete files older than 7 days
+if find /backup -type d -mtime +7 -exec rm -rf {} \; ; then
+	echo "$(date) - Old backup files and directories deleted." >> $log_file
+	echo "-------------------------------------------" >> $log_file
+else
+	echo "$(date) - Old backup files and directories could not be deleted. You should manually delete them ASAP." >> $log_file
+	echo "-------------------------------------------" >> $log_file
+fi
+
+# Send an email with the backup log
+aws sns publish --topic-arn "${topic_arn}" --message file://$log_file
+EOF
+chmod 700 /opt/custom/backup.sh
+
 sudo touch mycron
-sudo crontab -l > mycron
-echo "MAILTO=${ghost_email}" | sudo tee -a mycron
-echo "0 0 * * * /usr/bin/mysqldump -u root -p '${mysql_password}' ${mysql_db} > /backup/${mysql_db}-$(date +%Y-%m-%d).sql; /usr/bin/rsync -avz --exclude-from=/backup/exclude.txt /var/www/ghost/ /backup/$(date +%Y-%m-%d)/ghost" | sudo tee -a mycron
+echo "0 0 * * * /opt/custom/backup.sh >/dev/null 2>&1" | sudo tee -a mycron
 sudo crontab mycron
 sudo rm -f mycron
 
@@ -171,7 +215,10 @@ fi
 
 # Install Ghost without setting it up
 cd /var/www/ghost
-sudo -u ${linux_user} ghost install --no-setup
+if ! sudo -u ${linux_user} ghost install --no-setup; then
+	# If it fails, try again
+	sudo -u ${linux_user} ghost install --no-setup
+fi
 
 # Create config files
 cp -p /var/www/ghost/.ghost-cli{,.bak}
@@ -215,7 +262,7 @@ EOF
 # Finish Ghost setup
 sudo chown -R ${linux_user}:${linux_user} /var/www/ghost
 cd /var/www/ghost
-sudo -u ${linux_user} ghost setup --no-prompt --sslemail ${ghost_email}
+sudo -u ${linux_user} ghost setup --no-prompt --sslemail ${admin_email}
 
 echo "All went well" >> ~/all_went_well.txt
 
