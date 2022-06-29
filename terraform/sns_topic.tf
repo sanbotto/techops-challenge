@@ -8,7 +8,3 @@ resource "aws_sns_topic_subscription" "instance_notifications_target" {
 	protocol  = "email"
 	endpoint  = var.admin_email
 }
-
-output "instance_notifications_topic_arn" {
-	value = aws_sns_topic.instance_notifications.arn
-}
