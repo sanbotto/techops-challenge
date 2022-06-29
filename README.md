@@ -2,7 +2,9 @@
 
 1. Configure AWS CLI with:
 
-	`aws configure`
+	```
+	aws configure
+	```
 	
 	You'll have to enter your AWS credentials (access key ID and secret access key), region (recommended: us-west-2) and output format (recommended: json).
 
@@ -17,7 +19,7 @@
 	terraform apply -auto-approve
 	```
 
-	Replace `$DESIRED_BUCKET_NAME` with the name of the bucket you want to use.
+	Replace `$DESIRED_BUCKET_NAME` with the name of the bucket you want to use. You might not need to run the `sed` command if the original bucket name is available, but it's still documented here just in case.
 
 &#x200B;
 
@@ -25,12 +27,12 @@
 
 	```
 	cd ../terraform
-	sed -i "s/techops-ghost8/$DESIRED_BUCKET_NAME/g" main.tf
+	sed -i "s/techops-ghost/$DESIRED_BUCKET_NAME/g" main.tf
 	terraform init
 	terraform apply -auto-approve
 	```
 
-	Replace `$DESIRED_BUCKET_NAME` with the name of the bucket you want to use _(it has to be the same used in step 2, or the bucket that already exists and is being used for this purpose)_.
+	Replace `$DESIRED_BUCKET_NAME` with the name of the bucket you want to use _(it has to be the same used in step 2, or the bucket that already exists and is being used for this purpose)_. Again, you might not need to run the `sed` command if the original bucket name is available, but it's still documented here just in case.
 
 &#x200B;
 
@@ -72,19 +74,19 @@ _Based on [this](https://ghost.org/integrations/github/) guide._
 
 &#x200B;
 
-3. Create a new Ghost custom integration. In Ghost Admin, navigate to *Integrations* and create a new custom integration called *GitHub Actions*:
+3. Create a new Ghost custom integration. In Ghost Admin, navigate to **Integrations** and create a new custom integration called **GitHub Actions**:
 
 	![Ghost Integrations Page](https://techops-challenge.sbotto.workers.dev/ghost-integrations.png)
 
 &#x200B;
 
-4. Set your Ghost integration credentials in GitHub. Copy and paste your integration details into your GitHub repository's environment variables _(this repo should be the one in which you work with the Ghost theme)_. You can find these under *Settings → Secrets → Actions*.
+4. Set your Ghost integration credentials in GitHub. Copy and paste your integration details into your GitHub repository's environment variables _(this repo should be the one in which you work with the Ghost theme)_. You can find these under **Settings → Secrets → Actions**.
 
 	![GitHub Secrets Setting 1](https://techops-challenge.sbotto.workers.dev/github-actions-secrets-1.png)
 
 	![GitHub Secrets Setting 2](https://techops-challenge.sbotto.workers.dev/github-actions-secrets-2.png)
 
-	Create one secret called `GHOST_ADMIN_API_URL` with the *API URL* from your custom integration, and another secret called `GHOST_ADMIN_API_KEY` with the *Admin API Key* from your custom integration.
+	Create one secret called `GHOST_ADMIN_API_URL` with the **API URL** from your custom integration, and another secret called `GHOST_ADMIN_API_KEY` with the **Admin API Key** from your custom integration.
 
 &#x200B;
 
@@ -111,4 +113,4 @@ _Based on [this](https://ghost.org/integrations/github/) guide._
 
 	Now, every time you push changes to your theme repository on branch `main`, your theme will automatically build and deploy to Ghost Admin.
 
-	Navigate to *Settings → Theme* in Ghost Admin to make sure that the theme you're uploading from GitHub is the currently active theme, and you should be all set!
+	Navigate to **Settings → Theme** in Ghost Admin to make sure that the theme you're uploading from GitHub is the currently active theme, and you should be all set!
