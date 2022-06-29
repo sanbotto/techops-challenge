@@ -23,6 +23,11 @@ variable "key_name" {
 	description = "The SSH key to use for the EC2 instance"
 }
 
+variable "linux_user" {
+	default     = "dev-admin"
+	description = "The secondary Linux user to use for the EC2 instance"
+}
+
 # Ghost
 variable "ghost_email" {
 	default     = "me@sbotto.com"

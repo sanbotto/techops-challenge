@@ -22,7 +22,7 @@ data "template_file" "ghost_instance" {
 		ghost_email    = var.ghost_email
 		ghost_domain   = var.ghost_domain
 
-		linux_user     = var.ghost_user
+		linux_user     = var.linux_user
 		linux_password = random_password.linux_password.result
 
 		project_name   = var.project_name
