@@ -1,7 +1,7 @@
-#!/bin/bash -x
+#!/bin/bash
 
-# Log all this script's output to user-data.log. Only for debugging purposes.
-exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+# Log all this script's output to user-data.log. Only enable this for debugging purposes (pass the flag -x to bash if you need this)
+#exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 # Make sure that ${linux_user} and ubuntu don't need to use their password in order to use sudo
 cat << EOF >> /etc/sudoers
