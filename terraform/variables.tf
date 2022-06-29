@@ -28,10 +28,9 @@ variable "linux_user" {
 	description = "The secondary Linux user to use for the EC2 instance"
 }
 
-# Ghost
-variable "ghost_email" {
+variable "admin_email" {
 	default     = "me@sbotto.com"
-	description = "The email address to use for Ghost"
+	description = "The email address of the admin user"
 }
 
 variable "ghost_domain" {
