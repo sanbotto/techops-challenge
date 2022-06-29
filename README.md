@@ -42,7 +42,7 @@ _If everything works as expected, you should end up with a fully configured EC2 
 
 &#x200B;
 
-5. You'll need to create file `terraform/variables_sensitive.tf` in order to be able to set the required variables to perform the DNS update at Cloudflare. It's code should be like this:
+5. You'll need to create file `terraform/variables_sensitive.tf` in order to be able to set the required variables to perform the DNS update at Cloudflare. Its code should be like this:
 
 	```
 	# Cloudflare's variables
