@@ -20,6 +20,13 @@ resource "aws_iam_role_policy" "ghost_instance_role_policy" {
 			],
 			"Effect": "Allow",
 			"Resource": "arn:aws:ssm:*:*:parameter/${var.project_name}/*"
+		},
+		{
+			"Action": [
+				"sns:Publish"
+			],
+			"Effect": "Allow",
+			"Resource": "${aws_sns_topic.instance_notifications.arn}"
 		}
 	]
 }
