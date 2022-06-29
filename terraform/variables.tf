@@ -34,7 +34,7 @@ variable "admin_email" {
 }
 
 variable "ghost_domain" {
-	default     = "ghost.sbotto.com"
+	default     = "ghost2.sbotto.com"
 	description = "The URL to use for Ghost"
 }
 

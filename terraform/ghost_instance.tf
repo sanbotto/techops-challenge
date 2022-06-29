@@ -62,7 +62,3 @@ resource "aws_eip" "ghost_instance" {
 		Name = var.project_name
 	}
 }
-
-output "ghost_instance-public_ip" {
-	value = aws_eip.ghost_instance.public_ip
-}
