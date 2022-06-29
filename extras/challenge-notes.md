@@ -16,12 +16,16 @@
 	Change port.
 	Restrict access to only certain IPs.
 
-* Automate Ghost connection to GitHub
+* Improve Ghost's automatic installation
+	Install Ghost from source or build a more complex script that is able to catch and work around every single unpredictable issue with Ghost's CLI. The installation process now works but not all the time, which isn't acceptable for production.
+
+* Automate Ghost's connection to GitHub
 	This would be easy if not for Ghost's CLI unstable behavior and lack of factual documentation on its own capabilities.
 
-* Make a script to handle the backup
-	Currently, there's a very simple command that runs as a cron job. A proper script could perform various checks and also use SES to send the email instead of a native Linux tool like `sendmail` which only works if the account is allowed to send email from port 25.
-	Also, it's better to send the backups to S3 rather than using a local disk.
+* Store the backups in S3 rather than using a local disk
+
+* Automate the management of Cloudflare's sensitive variables
+	In order to update the DNS record used for the Ghost installation, I provided my own domain name and its DNS zone hosted by Cloudflare. The updates require authentication and the sensitive values could be stored in Parameter Store but we are not working with a persistent AWS (all my tests have been made on temporary sandboxes). Unfortunately, the current implementation is the best we can do given the circumstances. I'll have to manually provide you with said sensitive information so you can work with it.
 
 &#x200B;
 

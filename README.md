@@ -1,4 +1,6 @@
-# Deploy infrastructure using this code
+# Deploy a Ghost instance using this code
+
+&#x200B;
 
 1. Configure AWS CLI with:
 
@@ -23,7 +25,30 @@
 
 &#x200B;
 
-3. Once the bucket is created, you can proceed to create the VM and all its required infrastructure. To do that, run:
+3. Take a close look at all variables set in `terraform/variables.tf`. Adjust them as necessary.
+
+&#x200B;
+
+4. You'll need to create file `terraform/variables_sensitive.tf` in order to be able to set the required variables to perform the DNS update at Cloudflare. It's code should be like this:
+
+	```
+	# Cloudflare's variables
+	variable "cloudflare_zone_id" {
+		default     = ""
+		description = "Cloudflare's zone ID for the domain used by Ghost"
+	}
+
+	variable "cloudflare_api_token" {
+		default     = ""
+		description = "Cloudflare's API token"
+	}
+	```
+
+	You should ask for the missing values to your DevOps team. For security reasons, this file has to remain secret.
+
+&#x200B;
+
+5. Once the bucket is created, you can proceed to create the VM and all its required infrastructure. To do that, run:
 
 	```
 	cd ../terraform
@@ -36,11 +61,11 @@
 
 &#x200B;
 
-4. Once step 3 is done, you'll see some output. Grab the public IP of the new instance, which will be the last line of said output.
+6. Once step 3 is done, you'll see some output. Grab the public IP of the new instance, which will be the last line of said output.
 
 &#x200B;
 
-5. Head over to the AWS console and go to [Parameter Store](https://us-west-2.console.aws.amazon.com/systems-manager/parameters/?region=us-west-2&tab=Table) so you can copy the private key needed to connect to the instance. There will be only two private keys, so it will be easy to find. The main key belongs to user `ubuntu`, and there's also a key that belongs to the secondary Linux user that was created _(dev-admin, as long as you don't change the variable that sets this)_. Unless the naming scheme changes, you can use this direct link to get to the right key: [techops-ghost-ssh-key-private](https://us-west-2.console.aws.amazon.com/systems-manager/parameters/techops-ghost/techops-ghost-ssh-key-private/description?region=us-west-2&tab=Table).
+7. Head over to the AWS console and go to [Parameter Store](https://us-west-2.console.aws.amazon.com/systems-manager/parameters/?region=us-west-2&tab=Table) so you can copy the private key needed to connect to the instance. There will be only two private keys, so it will be easy to find. The main key belongs to user `ubuntu`, and there's also a key that belongs to the secondary Linux user that was created _(dev-admin, as long as you don't change the variable that sets this)_. Unless the naming scheme changes, you can use this direct link to get to the right key: [techops-ghost-ssh-key-private](https://us-west-2.console.aws.amazon.com/systems-manager/parameters/techops-ghost/techops-ghost-ssh-key-private/description?region=us-west-2&tab=Table).
 
 	In there, you'll also find all other credentials needed to manage this infrastructure (MySQL, Ghost, etc.), so you can grab what you need and proceed.
 
@@ -48,13 +73,17 @@
 
 &#x200B;
 
-6. To connect to the instance via SSH, after copying the private key, you can use the following command:
+8. To connect to the instance via SSH, after copying the private key, you can use the following command:
 
 	```
 	ssh -v -i $private_key ubuntu@$public_ip
 	```
 
 	Replace `$private_key` with the path to the private key you created, and `$public_ip` with the public IP of the instance.
+
+&#x200B;
+
+9. Finally, you should check the mailbox you set as `admin_email` in `terraform/variables.tf` for the confirmation email sent by AWS to confirm your subscription to the SNS topic. If you don't do this, you won't receive any emails from the backup script.
 
 &#x200B;
 
@@ -113,4 +142,4 @@ _Based on [this](https://ghost.org/integrations/github/) guide._
 
 	Now, every time you push changes to your theme repository on branch `main`, your theme will automatically build and deploy to Ghost Admin.
 
-	Navigate to **Settings → Theme** in Ghost Admin to make sure that the theme you're uploading from GitHub is the currently active theme, and you should be all set!
+	Navigate to **Settings → Theme** in Ghost Admin to make sure that the theme you're uploading from GitHub is the currently active theme, and you'll be all set!
