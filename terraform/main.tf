@@ -9,7 +9,7 @@ terraform {
 	required_version = ">= 1.2.3"
 
 	backend "s3" {
-		bucket = "techops-ghost7"
+		bucket = "techops-ghost"
 		key    = "terraform_state/"
 		region = "us-west-2"
 	}

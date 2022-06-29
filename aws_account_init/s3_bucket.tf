@@ -1,6 +1,6 @@
 variable "ghost_bucket" {
 	description = "The name of the S3 bucket that will hold the terraform state file"
-	default = "techops-ghost7"
+	default = "techops-ghost"
 }
 
 # Create the S3 bucket that will hold the terraform state file
